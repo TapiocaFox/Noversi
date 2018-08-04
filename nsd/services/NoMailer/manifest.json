@@ -1,0 +1,7 @@
+{
+  "name": "NoMailer",
+  "displayname": "NOOXY Mail Sender Service",
+  "description": "Mail sender for account recovery, subscribe or other stuff.",
+  "Authors": ["NOOXY", "noowyee"],
+  "implementation_api": false,
+}

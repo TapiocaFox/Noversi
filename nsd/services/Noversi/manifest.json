@@ -1,0 +1,57 @@
+{
+  "name": "Noversi",
+  "version": "0.0.0",
+  "displayname": "NOOXY Reversi Service",
+  "description": "Online reversi based on NOOXY service framework.",
+  "Authors": [
+    "magneticchen",
+    "NOOXY"
+  ],
+  "implementation_api": false,
+  "dependencies": {
+    "node_packages": {},
+    "services": {}
+  },
+  "JSONfunciton_prototypes": {
+    "joinmatch": {
+      "displayname": "Join Match",
+      "description": "Join a Reversi Match.",
+      "secure": false,
+      "protocol": {
+        "JSON_call": {
+        },
+        "JSON_return": {
+          "mi": "Match ID",
+          "ps": "User's Position, p1 or p2.",
+          "p1": {
+            "n": "Player1 username.",
+            "rk": "Player1 rank.",
+            "rt": "Player1 rating."
+          },
+          "p2": {
+            "n": "Player2 username.",
+            "rk": "Player2 rank.",
+            "rt": "Player2 rating."
+          }
+        }
+      }
+    },
+    "drop": {
+      "displayname": "Drop chess",
+      "description": "Drop a chess on praticular position on board.",
+      "secure": false,
+      "protocol": {
+        "JSON_call": {
+          "r": "Row",
+          "c": "Column"
+        },
+        "JSON_return": {
+          "e": "Error report."
+        }
+      }
+    }
+  },
+  "settings": {
+    "match_timeout": null
+  }
+}
