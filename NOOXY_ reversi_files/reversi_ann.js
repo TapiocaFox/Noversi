@@ -69,7 +69,7 @@ function flash(status) {
     box=document.getElementById("flash-status-box");
     box.classList.add("style-hidden");
     flasher.classList.add("style-hidden");
-  }, 300);
+  }, 450);
 }
 function close_coverer() {
   coverer=document.getElementById("coverer");
@@ -108,8 +108,16 @@ function drop (r, c) {
     flash(json.s);
   });
 }
-function pass () {
-
+function chat (string) {
+  as.call('chat', {c:string}, (err, json)=>{
+    flash(string);
+  });
+}
+function quit () {
+  open_coverer('Quiting...');
+  as.call('quitMatch', null, (err, json)=>{
+    flash('Quited. You will lose your rating.');
+  });
 }
 var mykey="NNNNNNNNNNNNNNNNNNNNNNNNNNNBANNNNNNABNNNNNNNNNNNNNNNNNNNNNNNNNNN";
 //initailize
@@ -158,10 +166,17 @@ function initailize () {
           open_coverer(data.s);
         }
       }
-      renderBoard();
+
       if(data.m=='all') {
+        renderBoard();
         set_p1_meta(data.game.p1.name);
         set_p2_meta(data.game.p2.name);
+      }
+      else if (data.m=='board') {
+        renderBoard();
+      }
+      else if (data.m=='chat') {
+        flash(data.c);
       }
     }
     open_coverer('Joining match...');

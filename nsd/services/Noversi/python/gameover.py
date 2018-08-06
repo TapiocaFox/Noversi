@@ -19,14 +19,7 @@ if sess.cansetDropPoint((row, col), position) > 0:
     sess.setDropPoint((row, col), position)
     newkey = ReversiUtility.convertBoardtoKey(sess.Boardnow)
     point = ReversiUtility.getPointbyBoard(sess.Boardnow)
-    turn = position*-1
-    if sess.cansetBoard(position*-1) > 0:
-        turn = position*-1
-    elif  sess.cansetBoard(position) > 0:
-        turn = position
-    else:
-        turn = 0
-    response = 'OK '+str(newkey)+' '+str(point[0])+' '+str(point[1])+' '+str(turn)
+    response = 'OK '+str(newkey)+' '+str(point[0])+' '+str(point[1])
 else:
     response = 'err'
 

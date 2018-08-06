@@ -5,7 +5,7 @@
 
 let files_path;
 let settings;
-let Noversi = require('./noversi');
+let Noversi = require('./Noversi');
 // Your service entry point
 function start(api) {
   let noversi = new Noversi();
@@ -26,12 +26,33 @@ function start(api) {
     // accessing other service
   });
 
+  let ai_names = ['littleboy', 'fatman', 'kamikaze', 'jerry', 'moji', 'miko', 'taiwanvalue', 'noowyee', 'yves', 'youknowwhoiam', 'ganninia', 'nihaoma', 'tiger', 'hitler', 'anny'];
   let userid_entityids = {};
+
+  noversi.importAINames(ai_names);
+
+  let getname = (p1name, p2name, callback) => {
+    if(!ai_names.includes(p1name)) {
+      api.Authenticity.getUsernamebyId(p1name, (err, p1n)=>{
+        if(!ai_names.includes(p2name)) {
+          api.Authenticity.getUsernamebyId(p2name, (err, p2n)=>{
+            callback(p1n, p2n);
+          });
+        }
+        else {
+          callback(p1n, p2name);
+        }
+      });
+    }else {
+      api.Authenticity.getUsernamebyId(p2name, (err, p2n)=>{
+        callback(p1name, p2n);
+      });
+    }
+  };
 
   noversi.onMatchUpdate = (userid, json) => {
     let sendall = ()=>{
       let entityids = userid_entityids[userid];
-      console.log(entityids);
       for(let i in entityids) {
         try {
           ss.sendData(entityids[i], json);
@@ -41,19 +62,39 @@ function start(api) {
       }
     };
     if(json.m == 'all') {
-      api.Authenticity.getUsernamebyId(json.game.p1.name, (err, p1n)=>{
+      getname(json.game.p1.name, json.game.p2.name, safec((p1n, p2n)=>{
         json.game.p1.name = p1n;
-        api.Authenticity.getUsernamebyId(json.game.p2.name, (err, p2n)=>{
-          json.game.p2.name = p2n;
-          sendall();
-        });
-      });
+        json.game.p2.name = p2n;
+        sendall();
+      }));
     }
     else {
       sendall();
     }
-
   }
+
+  noversi.onChat = (userid, emitter, chat) => {
+    api.Authenticity.getUsernamebyId(emitter, (err, name)=>{
+      if(ai_names.includes(emitter)) {
+        name = emitter;
+      }
+      let data = {
+        m: 'chat',
+        c: name+': '+chat
+      }
+      let sendall = ()=>{
+        let entityids = userid_entityids[userid];
+        for(let i in entityids) {
+          try {
+            ss.sendData(entityids[i], data);
+          } catch (e) {
+          }
+        }
+      };
+      sendall();
+    });
+  }
+
   // JSONfunction is a function that can be defined, which others entities can call.
   // It is a NOOXY Service Framework Standard
   ss.def('joinMatch', (json, entityID, returnJSON)=>{
@@ -65,20 +106,23 @@ function start(api) {
     // Get Username and process your work.
     let username = api.Service.Entity.returnEntityOwner(entityID);
       api.Authorization.Authby.Token(entityID, (err, pass)=>{
-        let userid = null;
-        // Get userid from API
-        api.Authenticity.getUserID(username, (err, id) => {
-          if(userid_entityids[id]) {
-            if(!userid_entityids[id].includes(entityID)) {
-              userid_entityids[id] = userid_entityids[id].concat([entityID]);
+        if(pass) {
+          let userid = null;
+          // Get userid from API
+          api.Authenticity.getUserID(username, (err, id) => {
+            if(userid_entityids[id]) {
+              if(!userid_entityids[id].includes(entityID)) {
+                userid_entityids[id] = userid_entityids[id].concat([entityID]);
+              }
             }
-          }
-          else {
-            userid_entityids[id] = [entityID];
-          }
-          let result = noversi.joinMatch(id);
-          returnJSON(false, {s:result.status});
-        });
+            else {
+              userid_entityids[id] = [entityID];
+            }
+            let result = noversi.joinMatch(id);
+            returnJSON(false, {s:result.status});
+          });
+        }
+
       });
   });
 
@@ -90,14 +134,57 @@ function start(api) {
     }
     // Get Username and process your work.
     let username = api.Service.Entity.returnEntityOwner(entityID);
+
       api.Authorization.Authby.Token(entityID, (err, pass)=>{
-        let userid = null;
-        // Get userid from API
-        api.Authenticity.getUserID(username, (err, id) => {
-          noversi.dropChess(id, json.r, json.c, (err, json)=>{
-            returnJSON(false, json);
+        if(pass) {
+          let userid = null;
+          // Get userid from API
+          api.Authenticity.getUserID(username, (err, id) => {
+            noversi.dropChess(id, json.r, json.c, safec((err, json)=>{
+              returnJSON(false, json);
+            }));
           });
-        });
+        }
+      });
+  });
+
+  ss.def('chat', (json, entityID, returnJSON)=>{
+
+    // Return Value for JSONfunction call. Otherwise remote will not recieve funciton return value.
+    let json_be_returned = {
+      s: ''
+    }
+    // Get Username and process your work.
+    let username = api.Service.Entity.returnEntityOwner(entityID);
+      api.Authorization.Authby.Token(entityID, (err, pass)=>{
+        if(pass) {
+          let userid = null;
+          // Get userid from API
+          api.Authenticity.getUserID(username, (err, id) => {
+            noversi.chat(id, json.c);
+          });
+        }
+
+      });
+  });
+
+  ss.def('quitMatch', (json, entityID, returnJSON)=>{
+
+    // Return Value for JSONfunction call. Otherwise remote will not recieve funciton return value.
+    let json_be_returned = {
+      s: ''
+    }
+    // Get Username and process your work.
+    let username = api.Service.Entity.returnEntityOwner(entityID);
+      api.Authorization.Authby.Token(entityID, (err, pass)=>{
+        if(pass) {
+          let userid = null;
+          // Get userid from API
+          api.Authenticity.getUserID(username, (err, id) => {
+            noversi.quitMatch(id);
+          });
+        }
+
       });
   });
 
@@ -152,7 +239,6 @@ function start(api) {
       callback(false);
     });
     // process you operation here
-
     // report error;
 
   }
