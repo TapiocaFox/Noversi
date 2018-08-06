@@ -87,15 +87,21 @@ let Noversidb = function () {
 
   this.addHistory = (matchid, p1, p2, winner, step, boardkey, turn, row, col, callback)=>{
     let datenow = Utils.DatetoSQL(new Date());
-    let sql = 'INSERT INTO history(userid, email, gender, phonenumber, birthday, country, address, aboutme, modifydate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);'
-    _database.run(sql, [this.userid, this.email, this.gender, this.phonenumber, this.birthday, this.country, this.address, this.aboutme, datenow], (err) => {
+    let sql = 'INSERT INTO history(matchid, p1, p2, winner, step, boardkey, turn, droprow, dropcol, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);'
+    _database.run(sql, [matchid, p1, p2, winner, step, boardkey, turn, row, col, datenow], (err) => {
       if(err) {
         callback(err);
       }
       else {
-        this.exisitence = true;
         callback(false);
       }
+    });
+  };
+
+  this.getUserHistory = (userid, callback)=> {
+    let sql = 'select * from history where p1 like ? or p2 like ?;';
+    _database.all(sql, [userid, userid], (err, rows)=>{
+      callback(err, rows);
     });
   }
 
@@ -130,7 +136,7 @@ let Noversidb = function () {
 // the noversi module
 function Noversi() {
 
-  const _Noversidb = new Noversidb();
+  const noversidb = new Noversidb();
   // Declare parameters
   let defaultkey="NNNNNNNNNNNNNNNNNNNNNNNNNNNBANNNNNNABNNNNNNNNNNNNNNNNNNNNNNNNNNN";
   let matches = {};
@@ -221,44 +227,74 @@ function Noversi() {
   }
 
   let updatematch = (match) => {
-    this.onMatchUpdate(match.p1, {
-      game: {
-        me: 0,
-        turn: match.turn,
-        p1: {
-          name: match.p1,
-          score: match.p1p,
-        },
-        p2: {
-          name: match.p2,
-          score: match.p2p,
-        },
-        key: match.key
-      },
-      m: 'all',
-      s: 'Opponent is thinking.'
+    noversidb.getUserbyId(ai_names.includes(match.p1)?'NoversiAI':match.p1, (err, user1)=>{
+      noversidb.getUserbyId(ai_names.includes(match.p2)?'NoversiAI':match.p2, (err, user2)=>{
+        this.onMatchUpdate(match.p1, {
+          game: {
+            me: 0,
+            turn: match.turn,
+            p1: {
+              name: match.p1,
+              score: match.p1p,
+              r: user1.rating,
+              w: user1.wincount
+            },
+            p2: {
+              name: match.p2,
+              score: match.p2p,
+              r: user2.rating,
+              w: user2.wincount
+            },
+            key: match.key,
+            r: match.history.length?(match.history[match.history.length-1])[2]:null,
+            c: match.history.length?(match.history[match.history.length-1])[3]:null
+          },
+          m: 'all',
+          s: 'Opponent is thinking.'
+        });
+        this.onMatchUpdate(match.p2, {
+          game: {
+            me: 1,
+            turn: match.turn,
+            p1: {
+              name: match.p1,
+              score: match.p1p,
+              r: user1.rating,
+              w: user1.wincount
+            },
+            p2: {
+              name: match.p2,
+              score: match.p2p,
+              r: user2.rating,
+              w: user2.wincount
+            },
+            key: match.key,
+            r: match.history.length?(match.history[match.history.length-1])[2]:null,
+            c: match.history.length?(match.history[match.history.length-1])[3]:null
+          },
+          m: 'all',
+          s: 'Opponent is thinking.'
+        });
+      });
     });
-    this.onMatchUpdate(match.p2, {
-      game: {
-        me: 1,
-        turn: match.turn,
-        p1: {
-          name: match.p1,
-          score: match.p1p,
-        },
-        p2: {
-          name: match.p2,
-          score: match.p2p,
-        },
-        key: match.key
-      },
-      m: 'all',
-      s: 'Opponent is thinking.'
-    });
+
   };
 
-  this.RatingAlgo = (wineridx, p1rating, p2rating)=> {
+  this.getUserHistory = (userid, callback)=> {
+    noversidb.getUserHistory(userid, callback);
+  }
 
+  this.RatingAlgo = (p1win, p1rating, p2rating)=> {
+    let k = 100;
+    let p1p = (1.0/(1.0+Math.pow(10, ((p2rating-p1rating)/400))));
+    let p2p = 1- p1p;
+    let sum = p1rating+p2rating;
+    let p1r = Math.floor(p1rating+k*(p1win-p1p));
+    let p2r = sum - p1r;
+    return {
+      p1: p1r,
+      p2: p2r
+    }
   }
 
   this.importAINames = (list) => {
@@ -277,16 +313,16 @@ function Noversi() {
 
   // import database from specified path
   this.importDatabase = (path) => {
-    _Noversidb.importDatabase(path);
+    noversidb.importDatabase(path);
   };
 
   // create a new database for noversi.
   this.createDatabase = (path) => {
-    _Noversidb.createDatabase(path);
+    noversidb.createDatabase(path);
   };
 
   this.getMatchMeta = (matchid, callback) => {
-    _Noversidb.getMatchbyId(matchid, (err, match) => {
+    noversidb.getMatchbyId(matchid, (err, match) => {
       let match_meta = {
         matchid: match.matchid,
         p1: match.p1,
@@ -300,13 +336,10 @@ function Noversi() {
   };
 
   this.getUserMeta = (userid, callback) => {
-    _Noversidb.getUserbyId(userid, (err, user) => {
+    noversidb.getUserbyId(userid, (err, user) => {
       let user_meta = {
-        userid: user.userid,
-        rating: user.rating,
-        win : user.win,
-        lose : user.lose,
-        history : JSON.parse(user.history)
+        r: user.rating,
+        win : user.wincount
       }
       callback(false, user_meta);
     });
@@ -429,7 +462,7 @@ function Noversi() {
               }
               else {
                 callback(false, {s:'OK'});
-                match.history = match.history.concat([[userposition, match.key, row, col]]);
+                match.history = match.history.concat([[match.key, userposition, row, col]]);
                 match.key = json.key;
                 match.p1p = json.p1;
                 match.p2p = json.p2;
@@ -477,7 +510,7 @@ function Noversi() {
               }
               else {
                 callback(false, {s:'OK'});
-                match.history = match.history.concat([[userposition, match.key, row, col]]);
+                match.history = match.history.concat([[match.key, userposition, row, col]]);
                 match.key = json.key;
                 match.p1p = json.p1;
                 match.p2p = json.p2;
@@ -540,25 +573,63 @@ function Noversi() {
           let matchid = userstatuslist[userid].matchid;
           let match = matches[matchid];
           try {
-            let p1s, p2s;
+            let p1s, p2s, p1win, aiidx=-1, winnerid;
             if(userid==match.p1) {
               p1s = 'You Lose.';
               p2s = 'You Win.';
+              p1win = 0;
+              winnerid=ai_names.includes(match.p2)?'NoversiAI':match.p2;
             }
             else {
               p2s = 'You Lose.';
               p1s = 'You Win.';
+              p1win = 1;
+              winnerid=ai_names.includes(match.p1)?'NoversiAI':match.p1;
             }
             if(draw) {
               p2s = 'Draw.';
               p1s = 'Draw.';
+              p1win = 0.5;
+              winnerid= null;
             }
+
             if(ai_names.includes(match.p1)) {
               ai_pending.push(match.p1);
+              aiidx = 0;
             }
             if(ai_names.includes(match.p2)) {
               ai_pending.push(match.p2);
+              aiidx = 1;
             }
+
+            let user1dbname = aiidx==0?'NoversiAI':match.p1;
+            let user2dbname = aiidx==1?'NoversiAI':match.p2;
+            noversidb.getUserbyId(user1dbname, (err, user1)=>{
+              noversidb.getUserbyId(user2dbname, (err, user2)=>{
+                let ratings = this.RatingAlgo(p1win, user1.rating, user2.rating);
+                user1.rating = ratings.p1;
+                user2.rating = ratings.p2;
+                if(p1win == 1) {
+                  user1.wincount += 1;
+                }
+                else if (p1win == 0) {
+                  user2.wincount += 1;
+                }
+                user1.updatesql(()=>{});
+                user2.updatesql(()=>{});
+                let step = 0;
+                let loop = ()=>{
+                  if(step<match.history.length) {
+                    noversidb.addHistory(match.id, user1dbname, user2dbname, winnerid, step, (match.history[step])[0], (match.history[step])[1], (match.history[step])[2], (match.history[step])[3], ()=>{
+                      step++;
+                      loop();
+                    });
+                  }
+                }
+                loop();
+              });
+            });
+
 
             this.onMatchUpdate(match.p1, {
               game: {
@@ -599,6 +670,23 @@ function Noversi() {
             delete matches[matchid];
           }
           catch (e) {
+            console.log(e);
+            this.onMatchUpdate(userid, {
+              game: {
+                me: 1,
+                turn: -1,
+                p1: {
+                  score: 0
+                },
+                p2: {
+                  score: 0
+                },
+                key: defaultkey
+              },
+              m: 'board',
+              s: 'Match ended.',
+              end: true
+            });
             queueduser.splice(queueduser.indexOf(userid), 1);
             delete userstatuslist[userid];
           }
@@ -617,14 +705,14 @@ function Noversi() {
   };
 
   this.deleteUser = (userid, callback) => {
-    _Noversidb.getUserbyId(userid, (err, user) => {
+    noversidb.getUserbyId(userid, (err, user) => {
       user.delete();
       callback(false);
     });
   };
 
   this.close = () => {
-    _Noversidb.close();
+    noversidb.close();
   };
 
 };

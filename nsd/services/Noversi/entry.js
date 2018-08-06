@@ -6,6 +6,13 @@
 let files_path;
 let settings;
 let Noversi = require('./Noversi');
+let fs = require('fs');
+
+String.prototype.replaceAll = function(search, replacement) {
+    var target = this;
+    return target.replace(new RegExp(search, 'g'), replacement);
+};
+
 // Your service entry point
 function start(api) {
   let noversi = new Noversi();
@@ -25,6 +32,13 @@ function start(api) {
   let admin_daemon_asock = api.Service.ActivitySocket.createDefaultAdminDeamonSocket('Another Service', (err, activitysocket)=> {
     // accessing other service
   });
+
+  if (fs.existsSync(files_path+'Noversi.sqlite3')) {
+    noversi.importDatabase(files_path+'Noversi.sqlite3');
+  }
+  else {
+    noversi.createDatabase(files_path+'Noversi.sqlite3');
+  }
 
   let ai_names = ['littleboy', 'fatman', 'kamikaze', 'jerry', 'moji', 'miko', 'taiwanvalue', 'noowyee', 'yves', 'youknowwhoiam', 'ganninia', 'nihaoma', 'tiger', 'hitler', 'anny'];
   let userid_entityids = {};
@@ -148,6 +162,60 @@ function start(api) {
       });
   });
 
+  ss.def('getHistory', (json, entityID, returnJSON)=>{
+
+    // Return Value for JSONfunction call. Otherwise remote will not recieve funciton return value.
+    let json_be_returned = {
+      s: ''
+    }
+    // Get Username and process your work.
+    let username = api.Service.Entity.returnEntityOwner(entityID);
+
+      api.Authorization.Authby.Token(entityID, (err, pass)=>{
+        if(pass) {
+          let userid = null;
+          // Get userid from API
+          api.Authenticity.getUserID(json.u, (err, id) => {
+            noversi.getUserHistory(json.u=='NoversiAI'?json.u:id, safec((err, rows)=>{
+              if(rows.length) {
+                returnJSON(false, json.u=='NoversiAI'?rows:JSON.parse((JSON.stringify(rows)).replaceAll(id, json.u)));
+              }
+              else {
+                returnJSON(false, {});
+              }
+            }));
+          });
+        }
+      });
+  });
+
+  ss.def('getUserMeta', (json, entityID, returnJSON)=>{
+
+    // Return Value for JSONfunction call. Otherwise remote will not recieve funciton return value.
+    let json_be_returned = {
+      s: ''
+    }
+    // Get Username and process your work.
+    let username = api.Service.Entity.returnEntityOwner(entityID);
+
+      api.Authorization.Authby.Token(entityID, (err, pass)=>{
+        if(pass) {
+          let userid = null;
+          // Get userid from API
+          api.Authenticity.getUserID(json.u, (err, id) => {
+            noversi.getUserMeta(json.u=='NoversiAI'?json.u:id, safec((err, meta)=>{
+              if(Object.keys(meta).length) {
+                returnJSON(false, meta);
+              }
+              else {
+                returnJSON(false, {});
+              }
+            }));
+          });
+        }
+      });
+  });
+
   ss.def('chat', (json, entityID, returnJSON)=>{
 
     // Return Value for JSONfunction call. Otherwise remote will not recieve funciton return value.
@@ -234,8 +302,14 @@ function start(api) {
     // Get userid from API
     api.Authenticity.getUserID(username, (err, id) => {
       let entityids = userid_entityids[id];
-      entityids.splice(entityids.indexOf(entityID), 1);
-      noversi.quitMatch(id);
+      try {
+        entityids.splice(entityids.indexOf(entityID), 1);
+        noversi.quitMatch(id);
+      }
+      catch (e) {
+
+      }
+
       callback(false);
     });
     // process you operation here
