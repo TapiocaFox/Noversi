@@ -2,13 +2,20 @@
 // Description:
 // "NSc.js" is a NOOXY Service framework client.
 // Copyright 2018 NOOXY. All Rights Reserved.
+'use strict';
+
 function NSc() {
+
   let settings = {
     verbose: true,
     debug: true,
     user: null,
     secure: true
   };
+
+  this.setDebug = (boo)=>{
+    settings.debug = boo;
+  }
 
   String.prototype.replaceAll = function(search, replacement) {
       var target = this;
@@ -29,7 +36,7 @@ function NSc() {
       var raw = window.atob(b64str);
       var rawLength = raw.length;
       var array = new Uint8Array(new ArrayBuffer(rawLength));
-      for(i = 0; i < rawLength; i++) {
+      for(let i = 0; i < rawLength; i++) {
         array[i] = raw.charCodeAt(i);
       }
       return array;
@@ -69,7 +76,7 @@ function NSc() {
       console.log('')
       console.log('')
       console.log('ver. '+version+'. '+copyright)
-      console.log('For more information or update -> www.nooxy.tk')
+      console.log('For more information or update -> www.nooxy.org')
       console.log('')
     },
     setCookie: (cname, cvalue, exdays)=> {
@@ -96,52 +103,7 @@ function NSc() {
     eraseCookie: (name)=> {
       Utils.setCookie(name,"",-1);
     },
-    returnPassword: function(prompt) {
-        if (prompt) {
-          process.stdout.write(prompt);
-        }
 
-        var stdin = process.stdin;
-        stdin.resume();
-        stdin.setRawMode(true);
-        stdin.resume();
-        stdin.setEncoding('utf8');
-
-        var password = '';
-        stdin.on('data', function (ch) {
-            ch = ch.toString('utf8');
-
-            switch (ch) {
-            case "\n":
-            case "\r":
-            case "\u0004":
-                // They've finished typing their password
-                process.stdout.write('\n');
-                stdin.setRawMode(false);
-                stdin.pause();
-                return password;
-                break;
-            case "\u0003":
-                // Ctrl-C
-                return null;
-                break;
-            case BACKSPACE:
-                password = password.slice(0, password.length - 1);
-                process.stdout.clearLine();
-                process.stdout.cursorTo(0);
-                process.stdout.write(prompt);
-                process.stdout.write(password.split('').map(function () {
-                  return '*';
-                }).join(''));
-                break;
-            default:
-                // More passsword characters
-                process.stdout.write('*');
-                password += ch;
-                break;
-            }
-        });
-    },
     tagLog: (tag, logstring) => {
       if(typeof(logstring)!='string') {
         logstring = JSON.stringify(logstring, null, 2);
@@ -232,7 +194,6 @@ function NSc() {
       this.returnGUID = () => {return _GUID};
 
       this.destroy= () => {
-        delete _conn;
         delete this;
         delete _clients[_GUID];
       };
@@ -359,14 +320,6 @@ function NSc() {
         wssc.connect(remoteip, port, callback);
       }
 
-      else if(conn_method == 'TCP/IP'||conn_method =='TCP') {
-        let serverID = "TCP/IP";
-        let netc = new TCPIPClient(_virtnet);
-        netc.onData = onData_wrapped;
-        netc.onClose = this.onClose;
-        netc.connect(remoteip, port, callback);
-      }
-
       else {
         Utils.tagLog('*ERR*', ''+conn_method+' not implemented. Skipped.');
       }
@@ -407,7 +360,7 @@ function NSc() {
       // Authby password failed
       'PF': (connprofile, data, data_sender) => {
         let AuthbyPasswordFailed = _implementation_module.returnImplement('AuthbyPasswordFailed');
-        AuthbyPasswordFailed();
+        AuthbyPasswordFailed(connprofile, data, data_sender);
       },
 
       // Authby token
@@ -419,17 +372,13 @@ function NSc() {
       // Authby token failed
       'TF': (connprofile, data, data_sender) => {
         let AuthbyTokenFailed = _implementation_module.returnImplement('AuthbyTokenFailed');
-        AuthbyTokenFailed();
+        AuthbyTokenFailed(connprofile, data, data_sender);
       },
 
       // Sign in
       'SI': (connprofile, data, data_sender) => {
         let Signin = _implementation_module.returnImplement('signin');
         Signin(connprofile, data, data_sender);
-      },
-
-      'AF': ()=>{
-
       }
     };
 
@@ -453,6 +402,7 @@ function NSc() {
     let _raw_sniffers = [];
     // for signup timeout
     let _locked_ip = [];
+    let _debug;
 
     let _tellJSONSniffers = (Json) => {
       if(settings.debug) {
@@ -783,6 +733,8 @@ function NSc() {
     let _ActivityRsCEcallbacks = {};
     let _ASockets = {};
     let _debug = false;
+    let _local_services;
+    let _entity_module;
 
     this.setDebug = (boolean) => {
       _debug = boolean;
@@ -873,7 +825,7 @@ function NSc() {
             this.emitRouter(connprofile, 'CS', _data);
           }
           else {
-            delete   _ActivityRsCEcallbacks[data.d.t];
+            delete  _ActivityRsCEcallbacks[data.d.t];
           }
         }
       }
@@ -959,7 +911,6 @@ function NSc() {
           _jfqueue[tempid](err);
         }
         else {
-          console.log(returnvalue);
           _jfqueue[tempid](err, JSON.parse(returnvalue));
         }
       };
@@ -1188,6 +1139,10 @@ function NSc() {
       _connection_module.createClient(conn_method, remoteip, port, callback);
     }
 
+    this.getDefaultClientConnProfile = (callback) => {
+      _connection_module.createClient(settings.connmethod, settings.targetip, settings.targetport, callback);
+    }
+
     this.importConnectionModule = (connection_module) => {
       _connection_module = connection_module;
     };
@@ -1267,7 +1222,7 @@ function NSc() {
   };
 
   let Vars = {
-    'version': 'aphla',
+    'version': 'aphla2',
     'NSP_version': 'aphla',
     'copyright': 'copyright(c)2018 NOOXY inc.',
     'default_user': {
@@ -1285,12 +1240,14 @@ function NSc() {
     };
     // setup variables
     verbose('Daemon', 'Setting up variables.')
-    _connection = new Connection();
-    _authorizationhandler = new AuthorizationHandler();
-    _router = new Router();
-    _service = new Service();
-    _implementation = new Implementation();
-    _nocrypto = {
+    let _connection = new Connection();
+    let _authorizationhandler = new AuthorizationHandler();
+    let _router = new Router();
+    let _service = new Service();
+    let _implementation = new Implementation();
+    let _nsps;
+
+    let _nocrypto = {
       returnRandomInt: (max)=>{
         let f = _implementation.returnImplement('returnRandomInt');
         return f(max);
@@ -1417,7 +1374,6 @@ function NSc() {
         return Math.floor(Math.random() * Math.floor(max));
       });
       _implementation.setImplement('generateAESCBC256KeyByHash', (string1, string2, callback)=>{
-        console.log(window.crypto)
         window.crypto.subtle.digest("SHA-256", new TextEncoder('utf-8').encode(string1+string2)).then((hash)=> {
           callback(false, (Utils.ArrayBuffertoBase64(hash)).substring(0, 32));
         });
@@ -1430,14 +1386,12 @@ function NSc() {
       });
       // setup NSF Auth implementation
       _implementation.setImplement('signin', (connprofile, data, data_sender)=>{
-        window.location.replace('/nsf/login.html?conn_method='+settings.connmethod+'&remote_ip='+settings.targetip+'&port='+settings.targetport+'&redirect='+window.location.href);
+        top.location.replace('/nsf/login.html?conn_method='+settings.connmethod+'&remote_ip='+settings.targetip+'&port='+settings.targetport+'&redirect='+top.window.location.href);
         // window.open('login.html?conn_method='+conn_method+'&remote_ip='+remote_ip+'&port='+port);
       });
 
       _implementation.setImplement('onToken', (err, token)=>{
-        console.log('token: ', token);
         Utils.setCookie('NSToken', token, 7);
-        console.log('token: ', Utils.getCookie('NSToken'));
         if(Utils.getQueryVariable('redirect')) {
           window.location.replace(Utils.getQueryVariable('redirect'));
         }
@@ -1445,12 +1399,15 @@ function NSc() {
 
       _implementation.setImplement('setUser', (err, username)=>{
         Utils.setCookie('NSUser', username, 365);
+        if(!username) {
+          Utils.eraseCookie('NSUser');
+        }
       });
 
       _implementation.setImplement('logout', (err, Username)=>{
         Utils.eraseCookie('NSUser');
         Utils.eraseCookie('NSToken');
-        location.reload();
+        window.location.reload();
       });
 
       _implementation.setImplement('AuthbyTokenFailed', (connprofile, data, data_sender)=>{
@@ -1469,7 +1426,7 @@ function NSc() {
           }
           data_sender(connprofile, 'AU', 'rs', _data);
         };
-        console.log('token: ', Utils.getCookie('NSToken'));
+
         let pass = true;
         if(Utils.getCookie('NSToken') == null) {
           _implementation.returnImplement('signin')(connprofile, data, data_sender, 'token');
@@ -1482,7 +1439,7 @@ function NSc() {
       // setup NSF Auth implementation
 
       _implementation.setImplement('AuthbyPassword', (connprofile, data, data_sender) => {
-        window.open('password.html?conn_method='+settings.connmethod+'&remote_ip='+settings.targetip+'&port='+settings.targetport+'&username='+settings.user+'&authtoken='+data.d.t+'&redirect='+window.location.href);
+        window.open('./nsf/password.html?conn_method='+settings.connmethod+'&remote_ip='+settings.targetip+'&port='+settings.targetport+'&username='+settings.user+'&authtoken='+data.d.t+'&redirect='+window.location.href);
       });
 
         // create gateway
@@ -1522,26 +1479,17 @@ function NSc() {
 
       // setup service
       _service.setDebug(settings.debug);
-      verbose('Daemon', 'Debug service enabled.');
-
       _service.importOwner(settings.user);
 
 
       verbose('Daemon', 'Setting up variables done.');
 
       // launch services
-      verbose('Daemon', 'Launching services...');
+      verbose('Daemon', 'Launching service module...');
       _service.launch();
-      verbose('Daemon', 'Launching services done.');
+      verbose('Daemon', 'Launching service module done.');
       //
       verbose('Daemon', 'NOOXY Service Framework successfully started.');
-      if(settings.shell_service == null) {
-        verbose('Shell', 'Shell Service not implemented.');
-      }
-
-      if(settings.shell_client_service == null) {
-        verbose('Shellc', 'Local Shell not implemented.');
-      }
 
     }
 
@@ -1566,8 +1514,8 @@ function NSc() {
   };
 
   this.returnUserName = ()=>{
-  return settings.user;
-}
+    return settings.user;
+  }
 
   this.connect = (targetip, targetport) =>{
     settings.connmethod = 'WebSocket';

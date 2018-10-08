@@ -14,7 +14,7 @@ String.prototype.replaceAll = function(search, replacement) {
 };
 
 // Your service entry point
-function start(api) {
+function start(Me, api) {
   let noversi = new Noversi();
   // Get the service socket of your service
   let ss = api.Service.ServiceSocket;
@@ -24,9 +24,9 @@ function start(api) {
   // E.g. setTimeout(api.SafeCallback(callback), timeout)
   let safec = api.SafeCallback;
   // Please save and manipulate your files in this directory
-  files_path = api.Me.FilesPath;
+  files_path = Me.FilesPath;
   // Your settings in manifest file.
-  settings = api.Me.Settings;
+  settings = Me.Settings;
 
   // Access another service on this daemon
   let admin_daemon_asock = api.Service.ActivitySocket.createDefaultAdminDeamonSocket('Another Service', (err, activitysocket)=> {
@@ -118,7 +118,7 @@ function start(api) {
       s: ''
     }
     // Get Username and process your work.
-    let username = api.Service.Entity.returnEntityOwner(entityID);
+    api.Service.Entity.getEntityOwner(entityID, (err, username)=> {
       api.Authorization.Authby.Token(entityID, (err, pass)=>{
         if(pass) {
           let userid = null;
@@ -138,6 +138,8 @@ function start(api) {
         }
 
       });
+    });
+
   });
 
   ss.def('dropChess', (json, entityID, returnJSON)=>{
@@ -147,8 +149,7 @@ function start(api) {
       s: ''
     }
     // Get Username and process your work.
-    let username = api.Service.Entity.returnEntityOwner(entityID);
-
+    api.Service.Entity.getEntityOwner(entityID, (err, username)=> {
       api.Authorization.Authby.Token(entityID, (err, pass)=>{
         if(pass) {
           let userid = null;
@@ -160,6 +161,9 @@ function start(api) {
           });
         }
       });
+    });
+
+
   });
 
   ss.def('getHistory', (json, entityID, returnJSON)=>{
@@ -169,8 +173,7 @@ function start(api) {
       s: ''
     }
     // Get Username and process your work.
-    let username = api.Service.Entity.returnEntityOwner(entityID);
-
+    api.Service.Entity.getEntityOwner(entityID, (err, username)=> {
       api.Authorization.Authby.Token(entityID, (err, pass)=>{
         if(pass) {
           let userid = null;
@@ -187,6 +190,8 @@ function start(api) {
           });
         }
       });
+    });
+
   });
 
   ss.def('getUserMeta', (json, entityID, returnJSON)=>{
@@ -196,8 +201,7 @@ function start(api) {
       s: ''
     }
     // Get Username and process your work.
-    let username = api.Service.Entity.returnEntityOwner(entityID);
-
+    api.Service.Entity.getEntityOwner(entityID, (err, username)=> {
       api.Authorization.Authby.Token(entityID, (err, pass)=>{
         if(pass) {
           let userid = null;
@@ -214,6 +218,9 @@ function start(api) {
           });
         }
       });
+    });
+
+
   });
 
   ss.def('chat', (json, entityID, returnJSON)=>{
@@ -223,7 +230,7 @@ function start(api) {
       s: ''
     }
     // Get Username and process your work.
-    let username = api.Service.Entity.returnEntityOwner(entityID);
+    api.Service.Entity.getEntityOwner(entityID, (err, username)=> {
       api.Authorization.Authby.Token(entityID, (err, pass)=>{
         if(pass) {
           let userid = null;
@@ -234,6 +241,8 @@ function start(api) {
         }
 
       });
+    });
+
   });
 
   ss.def('quitMatch', (json, entityID, returnJSON)=>{
@@ -243,7 +252,7 @@ function start(api) {
       s: ''
     }
     // Get Username and process your work.
-    let username = api.Service.Entity.returnEntityOwner(entityID);
+    api.Service.Entity.getEntityOwner(entityID, (err, username)=> {
       api.Authorization.Authby.Token(entityID, (err, pass)=>{
         if(pass) {
           let userid = null;
@@ -254,6 +263,8 @@ function start(api) {
         }
 
       });
+    });
+
   });
 
   // Safe define a JSONfunction.
@@ -275,17 +286,10 @@ function start(api) {
   // You will need entityID to Authorize remote user. And identify remote.
   ss.onData = (entityID, data) => {
     // Get Username and process your work.
-    let username = api.Service.Entity.returnEntityOwner(entityID);
-    // To store your data and associated with userid INSEAD OF USERNAME!!!
-    // Since userid can be promised as a unique identifer!!!
-    let userid = null;
-    // Get userid from API
-    api.Authenticity.getUserID(username, (err, id) => {
-      userid = id;
+    api.Service.Entity.getEntityOwner(entityID, (err, username)=> {
+
     });
-    // process you operation here
-    console.log('recieve a data');
-    console.log(data);
+
   }
   // Send data to client.
   // ss.sendData('A entity ID', 'My data to be transfer.');
@@ -298,22 +302,24 @@ function start(api) {
   // ServiceSocket.onClose, in case connection close.
   ss.onClose = (entityID, callback) => {
     // Get Username and process your work.
-    let username = api.Service.Entity.returnEntityOwner(entityID);
-    // Get userid from API
-    api.Authenticity.getUserID(username, (err, id) => {
-      let entityids = userid_entityids[id];
-      try {
-        entityids.splice(entityids.indexOf(entityID), 1);
-        noversi.quitMatch(id);
-      }
-      catch (e) {
+    api.Service.Entity.getEntityOwner(entityID, (err, username)=> {
+      // Get userid from API
+      api.Authenticity.getUserID(username, (err, id) => {
+        let entityids = userid_entityids[id];
+        try {
+          entityids.splice(entityids.indexOf(entityID), 1);
+          noversi.quitMatch(id);
+        }
+        catch (e) {
 
-      }
+        }
 
-      callback(false);
+        callback(false);
+      });
+      // process you operation here
+      // report error;
     });
-    // process you operation here
-    // report error;
+
 
   }
 }

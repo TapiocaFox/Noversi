@@ -134,6 +134,7 @@ var mykey="NNNNNNNNNNNNNNNNNNNNNNNNNNNBANNNNNNABNNNNNNNNNNNNNNNNNNNNNNNNNNN";
 function initailize () {
   let _NSc = new NSc();
   _NSc.connect('127.0.0.1', '1487');
+  _NSc.setDebug(true);
   uuid = guid();
   initmap();
   set_right_point(0);
