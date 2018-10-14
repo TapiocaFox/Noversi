@@ -24,6 +24,7 @@ function Connection(options) {
   let ssl_cert = null;
   let heartbeat_phrase = '{m:"HB"}';
   let heartbeat_cycle = 60000;
+  let _debug = false;
 
 
   // define an profile of an connection
@@ -68,7 +69,8 @@ function Connection(options) {
     this.returnGUID = () => {return _GUID};
 
     this.destroy= () => {
-      delete this;
+      // for worker deletetion
+      this.worker_cancel_refer = true;
       delete _clients[_GUID];
     };
     // this.onConnectionDropout = () => {
@@ -107,7 +109,7 @@ function Connection(options) {
           return _types[type];
         }
         this.close = () => {Utils.tagLog('*ERR*', 'VirtualSocket onClose not implemented. Of '+this.type)};
-        this.on = (type, callback)=>{_types[type] = callback;};
+        this.on = (type, callback)=> {_types[type] = callback;};
         this.emit = (type, d) =>{
           let _exe = _returntype(type);
           if(d) {
@@ -136,10 +138,12 @@ function Connection(options) {
 
       _vcs.close = (msg) => {
         _vss.emit('close');
+        _vcs.emit('close');
         selfdestruct();
       };
 
       _vss.close = (msg) => {
+        _vss.emit('close');
         _vcs.emit('close');
         selfdestruct();
       };
@@ -198,7 +202,6 @@ function Connection(options) {
       };
 
       this.close = () => {
-        vss.onclose();
         _virt_servers[rvirtip].ClientDisconnect(lvirtip);
       };
 
@@ -307,7 +310,7 @@ function Connection(options) {
 
       _ws.on('error', (error) => {
         Utils.tagLog('*WARN*', 'An error occured on connection module.');
-        Utils.tagLog('*WARN*', message);
+        Utils.tagLog('*WARN*', error);
         _ws.close();
         this.onClose(connprofile);
       });
@@ -674,7 +677,14 @@ function Connection(options) {
     if(Object.keys(_servers).length==1) {
       setInterval(()=>{
         for(let i in _servers) {
-          _servers[i].broadcast(heartbeat_phrase);
+          try{
+            _servers[i].broadcast(heartbeat_phrase);
+          }
+          catch(e) {
+            if(_debug) {
+              Utils.tagLog('*WARN*', 'Server '+i+' occured error on heartbeat. Skipped.');
+            }
+          }
         };
       }, heartbeat_cycle);
     };
@@ -733,15 +743,31 @@ function Connection(options) {
   };
 
   this.send = (connprofile, data) => {
-    connprofile.getConn((err, conn) => {
-      conn.send(connprofile, data);
-    });
+    try {
+      connprofile.getConn((err, conn) => {
+        conn.send(connprofile, data);
+      });
+    }
+    catch (e) {
+      if(_debug) {
+        Utils.tagLog('*WARN*', 'Error occured while sending Data.');
+        console.log(e);
+      }
+    }
   };
 
   this.broadcast = (data) => {
-    _servers.forEach((key, server) => {
-      server.broadcast(data);
-    });
+    try {
+      _servers.forEach((key, server) => {
+        server.broadcast(data);
+      });
+    }
+    catch (e) {
+      if(_debug) {
+        Utils.tagLog('*WARN*', 'Error occured while broadcasting Data.');
+        console.log(e);
+      }
+    }
   };
 
   this.onData = (conn_profile, data) => {
@@ -762,6 +788,10 @@ function Connection(options) {
 
   this.killClient = (conn_profile) => {
 
+  };
+
+  this.setDebug = (bool) => {
+    _debug = bool;
   };
 
   this.importSSLCert = (ssl_cert_in) => {

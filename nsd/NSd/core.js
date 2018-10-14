@@ -22,6 +22,7 @@ let Utils = require('./utilities');
 let NoCrypto = require('./crypto').NoCrypto;
 let NSPS = require('./crypto').NSPS;
 let Vars = require('./variables');
+let WorkerDaemon = require('./workerd');
 
 function Core(settings) {
   let verbose = (tag, log) => {
@@ -50,7 +51,7 @@ function Core(settings) {
   let _implementation = null;
   let _nocrypto = null;
   let _nsps = null;
-
+  let _workerd;
 
 
   this.checkandlaunch = () => {
@@ -76,7 +77,11 @@ function Core(settings) {
     let launchwrap = ()=>{
       Utils.printLOGO(Vars.version, Vars.copyright);
 
-      process.title = 'NSF-daemon';
+      process.title = settings.daemon_name;
+
+      if (process.pid) {
+        verbose('Daemon', 'Process Id: ' + process.pid);
+      }
       // initialize variables
       // verbose('Daemon', 'Initializing variables.')
       // // let _connection = null;
@@ -105,6 +110,7 @@ function Core(settings) {
       _implementation = new Implementation();
       _nocrypto = new NoCrypto();
       _nsps = new NSPS();
+      _workerd = new WorkerDaemon()
 
         //
         let _daemon = {
@@ -121,6 +127,7 @@ function Core(settings) {
             _implementation.close();
             _nocrypto.close();
             _nsps.close();
+            _workerd.close();
             verbose('Daemon', 'Stopping daemon in '+settings.kill_daemon_timeout+'ms.');
             setTimeout(process.exit, settings.kill_daemon_timeout);
           },
@@ -149,7 +156,8 @@ function Core(settings) {
             Implementation: _implementation,
             NoCrypto: _nocrypto,
             NSPS: _nsps,
-            Daemon: _daemon
+            Daemon: _daemon,
+            Variables: Vars
           };
         verbose('Daemon', 'Creating coregateway done.')
       // trust myself
@@ -170,10 +178,12 @@ function Core(settings) {
       // setup NOOXY Service protocol secure
       _nsps.importRSA2048KeyPair(fs.readFileSync(settings.rsa_2048_priv_key, 'utf8'), fs.readFileSync(settings.rsa_2048_pub_key, 'utf8'));
       _nsps.importCryptoModule(_nocrypto);
+      _nsps.importOperationTimeout(settings.operations_timeout);
       // setup router
       _router.importCore(coregateway);
 
       // setup connection
+      _connection.setDebug(settings.debug);
       if(settings.ssl_priv_key!=null && settings.ssl_cert!=null) {
         // read ssl certificate
         let privateKey = fs.readFileSync(settings.ssl_priv_key, 'utf8');
@@ -182,12 +192,13 @@ function Core(settings) {
         _connection.importSSLCert(certificate);
       }
 
-      for(var server in settings.connection_servers) {
+      for(let server in settings.connection_servers) {
         _connection.addServer(settings.connection_servers[server].type,
            settings.connection_servers[server].ip, settings.connection_servers[server].port);
       }
 
       _connection.importHeartBeatCycle(settings.heartbeat_cycle);
+
 
       // setup implementation
       _implementation.importConnectionModule(_connection);
@@ -210,6 +221,7 @@ function Core(settings) {
 
       // setup service
       _service.setDebug(settings.debug);
+      _service.importWorkerDaemon(_workerd);
       _service.setupServicesPath(settings.services_path);
       _service.setupServicesFilesPath(settings.services_files_path);
       _service.importAuthorization(_authorization);
@@ -231,8 +243,8 @@ function Core(settings) {
       _service.importAPI(_serviceAPI);
       _service.importOwner(settings.local_services_owner);
       _service.importDaemonAuthKey(settings.daemon_authorization_key);
-      // setup User
-
+      // setup WorkerDaemon
+      _workerd.importCloseTimeout(settings.kill_daemon_timeout);
       //
 
       // setup api

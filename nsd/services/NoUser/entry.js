@@ -8,7 +8,7 @@ let fs = require('fs');
 let files_path;
 let nouser = new NoUser();
 // Your service entry point
-function start(api) {
+function start(Me, api) {
   // Get the service socket of your service
   let ss = api.Service.ServiceSocket;
   // BEWARE! To prevent callback error crash the system.
@@ -17,14 +17,14 @@ function start(api) {
   // E.g. setTimeout(api.SafeCallback(callback), timeout)
   let safec = api.SafeCallback;
   // Please save and manipulate your files in this directory
-  files_path = api.Me.FilesPath;
+  files_path = Me.FilesPath;
 
   // // Access another service on this daemon
   // let admin_daemon_asock = api.Service.ActivitySocket.createDefaultAdminDeamonSocket('Another Service', (err, activitysocket)=> {
   //   // accessing other service
   // });
 
-  let country_list = api.Me.Settings.country_list;
+  let country_list = Me.Settings.country_list;
 
   if (fs.existsSync(files_path+'NoUser.sqlite3')) {
     nouser.importDatabase(files_path+'NoUser.sqlite3');
@@ -60,88 +60,92 @@ function start(api) {
   });
 
   ss.def('returnUserMeta', (json, entityID, returnJSON)=>{
-    let username = api.Service.Entity.returnEntityOwner(entityID);
-    api.Authorization.Authby.Token(entityID, (err, valid)=>{
-      if(valid) {
-        api.Authenticity.getUserMeta(username, (err, meta1)=>{
-          api.Authenticity.getUserID(username, (err, userid) => {
-            nouser.getUserMeta(userid, (err, meta2)=>{
-              returnJSON(false, Object.assign({}, meta1, meta2));
-            })
-          });
-        })
-      }
-      else {
-        returnJSON(false, {});
-      }
-    });
+    api.Service.Entity.getEntityOwner(entityID, (err, username)=> {
+      api.Authorization.Authby.Token(entityID, (err, valid)=>{
+        if(valid) {
+          api.Authenticity.getUserMeta(username, (err, meta1)=>{
+            api.Authenticity.getUserID(username, (err, userid) => {
+              nouser.getUserMeta(userid, (err, meta2)=>{
+                returnJSON(false, Object.assign({}, meta1, meta2));
+              })
+            });
+          })
+        }
+        else {
+          returnJSON(false, {});
+        }
+      });
+    })
+
   });
 
   // JSONfunction is a function that can be defined, which others entities can call.
   // It is a NOOXY Service Framework Standard
   ss.def('updateUser', (json, entityID, returnJSON)=>{
-    let username = api.Service.Entity.returnEntityOwner(entityID);
-    let json_be_returned = {
-      s: 'Succeessfully updated.'
-    }
-    api.Authorization.Authby.Password(entityID, (err, valid)=>{
-      if(valid) {
+    api.Service.Entity.getEntityOwner(entityID, (err, username)=> {
+      let json_be_returned = {
+        s: 'Succeessfully updated.'
+      }
+      api.Authorization.Authby.Password(entityID, (err, valid)=>{
+        if(valid) {
 
-        for(let i in json) {
-          if(json[i] == '') {
-            json[i] = null;
-          }
-        }
-        // First parameter for error, next is JSON to be returned.
-        if (json.pw != json.cp) {
-          json_be_returned.e = true;
-          json_be_returned.s = 'Error: password not match.';
-          returnJSON(false, json_be_returned);
-        }
-        else {
-          api.Authenticity.updatePassword(username, json.pw, (err)=>{
-            if(err&&json.pw!=null) {
-              json_be_returned.e = true;
-              json_be_returned.s = err.toString();
-              returnJSON(false, json_be_returned);
+          for(let i in json) {
+            if(json[i] == '') {
+              json[i] = null;
             }
-            else {
-              if(json.firstname != null && json.lastname!= null) {
-                api.Authenticity.updateName(username, json.firstname, json.lastname, (err)=>{
-                  if(err) {
-                    json_be_returned.e = true;
-                    json_be_returned.s = err.toString();
-                    returnJSON(false, json_be_returned);
-                  }
-                  else {
-                    api.Authenticity.getUserID(username, (err, userid) => {
-                      nouser.updateUser(userid, json, (err)=>{
-                        if(err) {
-                          json_be_returned.e = true;
-                          json_be_returned.s = err.toString();
-                        }
-                        returnJSON(false, json_be_returned);
-                      });
-                    });
-                  }
-                });
-              }
-              else {
+          }
+          // First parameter for error, next is JSON to be returned.
+          if (json.pw != json.cp) {
+            json_be_returned.e = true;
+            json_be_returned.s = 'Error: password not match.';
+            returnJSON(false, json_be_returned);
+          }
+          else {
+            api.Authenticity.updatePassword(username, json.pw, (err)=>{
+              if(err&&json.pw!=null) {
                 json_be_returned.e = true;
-                json_be_returned.s = 'Error: Please enter your name.';
+                json_be_returned.s = err.toString();
                 returnJSON(false, json_be_returned);
               }
-            }
-          });
+              else {
+                if(json.firstname != null && json.lastname!= null) {
+                  api.Authenticity.updateName(username, json.firstname, json.lastname, (err)=>{
+                    if(err) {
+                      json_be_returned.e = true;
+                      json_be_returned.s = err.toString();
+                      returnJSON(false, json_be_returned);
+                    }
+                    else {
+                      api.Authenticity.getUserID(username, (err, userid) => {
+                        nouser.updateUser(userid, json, (err)=>{
+                          if(err) {
+                            json_be_returned.e = true;
+                            json_be_returned.s = err.toString();
+                          }
+                          returnJSON(false, json_be_returned);
+                        });
+                      });
+                    }
+                  });
+                }
+                else {
+                  json_be_returned.e = true;
+                  json_be_returned.s = 'Error: Please enter your name.';
+                  returnJSON(false, json_be_returned);
+                }
+              }
+            });
 
+          }
         }
-      }
-      else {
-        json_be_returned.e = true;
-        json_be_returned.s = 'Error: Auth failed.';
-        returnJSON(false, json_be_returned);
-      }
+        else {
+          json_be_returned.e = true;
+          json_be_returned.s = 'Error: Auth failed.';
+          returnJSON(false, json_be_returned);
+        }
+      });
     });
+
   });
 
   // Safe define a JSONfunction.

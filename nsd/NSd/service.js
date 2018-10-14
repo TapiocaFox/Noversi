@@ -6,11 +6,11 @@
 
 let fs = require('fs');
 let Utils = require('./utilities');
+let WorkerDaemon = require('./workerd');
 
 function Service() {
   // need add service event system
   let _local_services = {};
-  let _activities = {};
   let _local_services_path = null;
   let _local_services_files_path = null;
   let _local_services_owner = null;
@@ -21,9 +21,18 @@ function Service() {
   let _daemon_auth_key = null;
   let _ASockets = {};
   let _debug = false;
+  let _workerd;
+
+
+
+  let ActivitySocketDestroyTimeout = 1000;
 
   this.setDebug = (boolean) => {
     _debug = boolean;
+  };
+
+  this.importWorkerDaemon = (wd)=> {
+    _workerd = wd;
   };
 
   this.importDaemonAuthKey = (key) => {
@@ -64,6 +73,7 @@ function Service() {
 
   this.importAPI = (serviceapi_module) => {
     _serviceapi_module = serviceapi_module;
+    _workerd.importAPI(serviceapi_module);
   };
 
   this.spwanClient = () => {Utils.tagLog('*ERR*', 'spwanClient not implemented');};
@@ -81,10 +91,10 @@ function Service() {
       if(connprofile.returnRemotePosition() == 'Client') {
         let i = 0;
         let loop = () => {
-          let theservice = _local_services[_entity_module.returnEntityValue(_entitiesID[i], 'service')];
-          
-          theservice.sendSSClose(_entitiesID[i], (err)=>{
-            _entity_module.deleteEntity(_entitiesID[i]);
+          let nowidx = i;
+          let theservice = _local_services[_entity_module.returnEntityValue(_entitiesID[nowidx], 'service')];
+          theservice.sendSSClose(_entitiesID[nowidx], (err)=>{
+            _entity_module.deleteEntity(_entitiesID[nowidx]);
           });
           if(i < _entitiesID.length-1) {
             i++;
@@ -95,8 +105,14 @@ function Service() {
         callback(false);
       }
       else {
+
         for(let i in _entitiesID) {
           _ASockets[_entitiesID[i]].onClose();
+          setTimeout(()=>{
+            // for worker abort referance
+            _ASockets[_entity_id].worker_cancel_refer = true;
+            delete _ASockets[_entitiesID[i]];
+          }, ActivitySocketDestroyTimeout);
         }
         callback(false);
       }
@@ -337,7 +353,7 @@ function Service() {
     let methods = {
       // nooxy service protocol implementation of "Call Activity: ActivitySocket"
       AS: () => {
-        _ASockets[data.d.i].onData(data.d.d);
+        _ASockets[data.d.i].emitOnData(data.d.d);
         let _data = {
           "m": "AS",
           "d": {
@@ -372,6 +388,24 @@ function Service() {
 
     let _send_handler = null;
     let _mode = null;
+    let _on_dict = {
+      connect: (entityID, callback) => {
+        if(_debug)
+          Utils.tagLog('*WARN*', 'onConnect of service "'+service_name+'" not implemented');
+        callback(false);
+      },
+
+      data: (entityID, data) => {
+        if(_debug)
+          Utils.tagLog('*WARN*', 'onData of service "'+service_name+'" not implemented');
+      },
+
+      close: (entityID, callback) => {
+        if(_debug)
+          Utils.tagLog('*WARN*', 'onClose of service "'+service_name+'" not implemented');
+        callback(false);
+      }
+    }
 
     this.returnJSONfuncList = () => {
       return Object.keys(_jsonfunctions);
@@ -418,11 +452,6 @@ function Service() {
       });
     };
 
-    this.onData = (entityID, data) => {
-      if(_debug)
-        Utils.tagLog('*WARN*', 'onData of service "'+service_name+'" not implemented');
-    };
-
     this.onJFCall = (entityID, JFname, jsons, callback) => {
       try {
         _jsonfunctions[JFname].obj(JSON.parse(jsons==null?'{}':jsons), entityID, (err, returnVal)=>{
@@ -431,7 +460,7 @@ function Service() {
       }
       catch (err) {
         if(_debug) {
-          Utils.tagLog('*ERR*', 'An error occured on JSON function call.');
+          Utils.tagLog('*ERR*', 'An error occured on JSON function call. Jfunc might not be exist.');
           console.log(err);
         }
         callback(err);
@@ -439,17 +468,21 @@ function Service() {
 
     };
 
-    this.onClose = (entityID, callback) => {
-      if(_debug)
-        Utils.tagLog('*WARN*', 'onClose of service "'+service_name+'" not implemented');
-      callback(false);
-    };
+    this.on = (type, callback)=> {
+      _on_dict[type] = callback;
+    }
 
-    this.onConnect = (entityID, callback) => {
-      if(_debug)
-        Utils.tagLog('*WARN*', 'onConnect of service "'+service_name+'" not implemented');
-      callback(false);
-    };
+    this.onConnect = (entityID, callback)=> {
+      _on_dict['connect'](entityID, callback);
+    }
+
+    this.onData = (entityID, data)=> {
+      _on_dict['data'](entityID, data);
+    }
+
+    this.onClose = (entityID, callback)=> {
+      _on_dict['close'](entityID, callback);
+    }
 
     this.returnServiceName = () => {
       return service_name;
@@ -466,7 +499,16 @@ function Service() {
 
     let _conn_profile = conn_profile;
     let _jfqueue = {};
+    let _on_dict = {
+      data: ()=> {
+        if(_debug) Utils.tagLog('*WARN*', 'ActivitySocket on "data" not implemented')
+      },
+      close: ()=> {
+        if(_debug) Utils.tagLog('*WARN*', 'ActivitySocket on "close" not implemented')
+      }
+    };
 
+    // For waiting connection is absolutly established. We need to wrap operations and make it queued.
     let exec = (callback) => {
       if(_launched != false) {
         callback();
@@ -515,8 +557,8 @@ function Service() {
       exec(op);
     }
 
-    this.returnEntityID = () => {
-      return _entity_id;
+    this.getEntityID = (callback) => {
+      callback(false, _entity_id);
     };
 
     this.sendData = (data) => {
@@ -526,25 +568,35 @@ function Service() {
       exec(op);
     };
 
-    this.onData = (data) => {
-      Utils.tagLog('*ERR*', 'onData not implemented');
+    this.on = (type, callback)=> {
+      _on_dict[type] = callback;
+    };
+
+    this.emitOnData = (data) => {
+      _on_dict['data'](false, data);
     };
 
     this.onClose = () => {
-      Utils.tagLog('*ERR*', 'onClose not implemented');
+      _on_dict['close'](false);
     };
 
     this.close = () => {
       let op = ()=> {
         let bundle = conn_profile.returnBundle('bundle_entities');
-        for (var i=bundle.length-1; i>=0; i--) {
+        for (let i=bundle.length-1; i>=0; i--) {
           if (bundle[i] === _entity_id) {
-              bundle.splice(i, 1);
+            this.onClose();
+            setTimeout(()=>{
+              // tell worker abort referance
+              _ASockets[_entity_id].worker_cancel_refer = true;
+              delete _ASockets[_entity_id];
+            }, ActivitySocketDestroyTimeout);
+            bundle.splice(i, 1);
           }
         }
         conn_profile.setBundle('bundle_entities', bundle);
         if(bundle.length == 0) {
-          _conn_profile.closeConnetion();
+          conn_profile.closeConnetion();
         }
       }
       exec(op);
@@ -558,8 +610,12 @@ function Service() {
     let _service_path = null;
     let _service_files_path = null;
     let _service_name = service_name;
-    let _service_module = null;
+    let _worker = null;
     let _service_manifest = null;
+
+    this.relaunch = ()=> {
+      _worker.relaunch();
+    }
 
     this.launch = (depended_service_dict, callback) => {
       let erreport = null;
@@ -571,6 +627,7 @@ function Service() {
       catch(err) {
         erreport = new Error('Service "'+_service_name+'" load manifest.json with failure.');
         console.log(err);
+        return erreport;
       };
       // check node packages dependencies
       try {
@@ -589,7 +646,7 @@ function Service() {
         console.log(err);
       }
       depended_service_dict[_service_name] = _service_manifest.dependencies.services;
-      _service_module = require(_service_path+'/entry');
+      _worker = _workerd.returnWorker(_service_path+'/entry');
       // load module from local service directory
 
       // create a description of this service entity.
@@ -624,12 +681,14 @@ function Service() {
         }
         if(_service_manifest.implementation_api == false) {
           _serviceapi_module.createServiceAPI(_service_socket, _service_manifest, (err, api) => {
-            _service_module.start(api);
+            _worker.importAPI(api);
+            _worker.launch();
           });
         }
         else {
           _serviceapi_module.createServiceAPIwithImplementaion(_service_socket, _service_manifest, (err, api) => {
-            _service_module.start(api);
+            _worker.importAPI(api);
+            _worker.launch();
           });
         }
 
@@ -678,7 +737,7 @@ function Service() {
     };
 
     this.close = () => {
-      _service_module.close();
+      _worker.close();
     };
   };
 
@@ -715,6 +774,9 @@ function Service() {
   // Service files module Path
   this.setupServicesFilesPath = (path) => {
     _local_services_files_path = path;
+    if (!fs.existsSync(path)) {
+      fs.mkdirSync(path);
+    }
   };
 
   // Service module Owner
@@ -722,7 +784,7 @@ function Service() {
     _local_services_owner = username;
   };
 
-  // ss callback
+  // Service Socket callback
   let _sscallback = (conn_profile, i, d) => {
     let _data2 = {
       "m": "SS",
@@ -770,10 +832,10 @@ function Service() {
           _as.setEntityID(data.d.i);
           connprofile.setBundle('entityID', data.d.i);
           _ASockets[data.d.i] = _as;
-          callback(false, _as);
+          callback(false, _ASockets[data.d.i]);
         }
         else{
-          callback(true, _as);
+          callback(true, _ASockets[data.d.i]);
         }
 
       }
@@ -807,7 +869,6 @@ function Service() {
         if(data.d.i != "FAIL") {
           _as.setEntityID(data.d.i);
           connprofile.setBundle('entityID', data.d.i);
-          console.log(connprofile.returnBundle('entityID'));
           _ASockets[data.d.i] = _as;
           callback(false, _as);
         }
@@ -831,6 +892,10 @@ function Service() {
 
   this.returnJSONfuncDict = (service_name) => {
     return _local_services[service_name].returnJSONfuncDict();
+  }
+
+  this.relaunch = (service_name)=> {
+    _local_services[service_name].relaunch();
   }
 
   this.returnList = () => {

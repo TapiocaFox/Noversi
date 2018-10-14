@@ -137,7 +137,10 @@ let Authdb = function () {
 
   this.getUser = (username, callback) => {
     let err = null;
-    if(typeof(_cacheduser[username]) == 'undefined') {
+    if(username== null) {
+      callback(true);
+    }
+    else if(typeof(_cacheduser[username]) == 'undefined') {
       let user = new User(username);
       user.loadsql((err)=>{
         _cacheduser[username] = user;
@@ -155,7 +158,7 @@ let Authdb = function () {
       if(typeof(_cacheduser[user.username]) == 'undefined') {
           _cacheduser[user.username] = user;
       }
-      callback(err, _cacheduser[user.username]);
+      callback(false, _cacheduser[user.username]);
     });
   };
 
@@ -185,44 +188,57 @@ function Authenticity() {
     _authdb.createDatabase(path);
   };
 
-  // create a temp user which will not exist in database.
-  this.getGuest = (callback) => {
-    let err = null;
-    let user = null;
-
-    user = new User('GUEST', true);
-
-    callback(err, user);
-  };
-
   this.getUserMeta = (username, callback) => {
-    _authdb.getUser(username, (err, user) => {
-      let user_meta = {
-        firstname: user.firstname,
-        lastname: user.lastname,
-        exisitence : user.exisitence,
-        username : user.username,
-        userid : user.userid,
-        displayname : user.displayname,
-        tokenexpire : user.tokenexpire,
-        privilege : user.privilege,
-        detail : user.detail
-      }
-      callback(false, user_meta);
-    });
+    try {
+      _authdb.getUser(username, (err, user) => {
+        let user_meta = {
+          firstname: user.firstname,
+          lastname: user.lastname,
+          exisitence : user.exisitence,
+          username : user.username,
+          userid : user.userid,
+          displayname : user.displayname,
+          tokenexpire : user.tokenexpire,
+          privilege : user.privilege,
+          detail : user.detail
+        }
+        callback(false, user_meta);
+      });
+    }
+    catch(e) {
+      callback(e);
+    }
   };
 
   this.getUserID = (username, callback) => {
-    _authdb.getUser(username, (err, user) => {
-      let id = user.userid;
-      callback(false, id);
-    });
+    try {
+      _authdb.getUser(username, (err, user) => {
+        let id = user.userid;
+        callback(err, id);
+      });
+    }
+    catch(e) {
+      callback(e);
+    }
+
   };
 
   this.getUsernamebyId = (userid, callback) => {
-    _authdb.getUserbyId(userid, (err, user) => {
-      let username = user.username;
-      callback(false, username);
+    try {
+      _authdb.getUserbyId(userid, (err, user) => {
+        let username = user.username;
+        callback(false, username);
+      });
+    }
+    catch(e) {
+      callback(e);
+    }
+
+  };
+
+  this.getUserExistence = (username, callback) => {
+    authdb.getUser(username, (err, user)=>{
+      callback(false, user.exisitence);
     });
   };
 
@@ -311,8 +327,15 @@ function Authenticity() {
 
   this.updatePrivilege = (username, privilege, callback) => {
     _authdb.getUser(username, (err, user)=>{
-      user.privilege = privilege;
-      user.updatesql(callback);
+      if(user.exisitence&&Number.isInteger(parseInt(privilege))) {
+
+        user.privilege = parseInt(privilege);
+        user.updatesql(callback);
+      }
+      else {
+        let err = new Error("User not existed or privilege level is not a Int.");
+        callback(err);
+      }
     });
   };
 
@@ -352,19 +375,23 @@ function Authenticity() {
   };
 
   this.TokenisValid = (username, token, callback) => {
-    let err = false;
-    let isValid = false;
-    _authdb.getUser(username, (err, user) => {
-      let now = new Date();
-      let expiredate = Utils.SQLtoDate(user.tokenexpire);
-      if(now > expiredate|| token != user.token) {
-        callback(err, false);
-      }
-      else {
-        callback(err, true);
-      }
-    });
-
+    if(token != null && username!=null && token.length > 10) {
+      let err = false;
+      let isValid = false;
+      _authdb.getUser(username, (err, user) => {
+        let now = new Date();
+        let expiredate = Utils.SQLtoDate(user.tokenexpire);
+        if(now > expiredate|| token != user.token) {
+          callback(err, false);
+        }
+        else {
+          callback(err, true);
+        }
+      });
+    }
+    else {
+      callback(false, false);
+    }
   };
 
   this.updateToken = (username, callback) => {
