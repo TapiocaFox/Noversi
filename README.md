@@ -12,7 +12,7 @@ npx create-noservice .
 note that "." can be replace by anywhere you'd like to deploy!
 
 2. Copy these files into "services/noversi"  the folder you deploy noservice.
-3. Add "noversi" into "settings.json"(in folder you deploy noservice) "services" settings.
+3. Add "noversi" into "settings.json"(in the folder you deploy noservice) "services" settings.
 
 Then you are ready to play! By typing "node launch.js" under NoService deployed folder. And open the client in browser.
 
