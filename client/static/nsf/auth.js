@@ -1,5 +1,5 @@
 let _NSc = new NSc();
-_NSc.connect('www.nooxy.tk', '1487');
+_NSc.connect('127.0.0.1');
 function getQueryVariable(variable)
 {
        var query = window.location.search.substring(1);
@@ -11,6 +11,10 @@ function getQueryVariable(variable)
        return(false);
 }
 $(function () {
+  let status = $('#status');
+  if(getQueryVariable('authfail')) {
+    status.html('<span style="color: #E91E63">Check your username exists and password is valid!</span>');
+  }
   $('#loginform').submit(function(e){
     try{
       _NSc.getImplement((err, implement_module)=>{

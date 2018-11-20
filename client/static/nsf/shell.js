@@ -1,5 +1,5 @@
 let _NSc = new NSc();
-_NSc.connect('www.nooxy.tk', '1487', 'admin');
+_NSc.connect('127.0.0.1');
 _NSc.createActivitySocket('NoShell', (err, as)=>{
   console.log('adfas');
   $(function () {

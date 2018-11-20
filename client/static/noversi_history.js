@@ -47,7 +47,7 @@ $(()=>{
     $("#user-rating").html(meta.r);
     $("#user-win").html(meta.win);
   };
-  _NSc.connect('0.0.0.0', '1487');
+  _NSc.connect('127.0.0.1', 'WebSocket');
   _NSc.createActivitySocket('Noversi', (err, as)=>{
     let update_user = (username)=>{
       as.call('getHistory', {u: username}, (err, json)=>{
