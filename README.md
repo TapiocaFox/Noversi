@@ -9,6 +9,8 @@ An online reversi service powered by NOOXY NoService and Nodenet.
 npm install noservice -save
 npx create-noservice .
 ```
+note that "." can be replace by anywhere you'd like to deploy!
+
 2. Copy these files into "services/noversi"  the folder you deploy noservice.
 3. Add "noversi" into "settings.json"'s "services" settings.
 
