@@ -31,11 +31,11 @@ function Service(Me, api) {
   this.start = ()=> {
 
 
-    if (fs.existsSync(files_path+'Noversi.sqlite3')) {
-      noversi.importDatabase(files_path+'Noversi.sqlite3');
+    if (fs.existsSync('Noversi.sqlite3')) {
+      noversi.importDatabase('Noversi.sqlite3');
     }
     else {
-      noversi.createDatabase(files_path+'Noversi.sqlite3');
+      noversi.createDatabase('Noversi.sqlite3');
     }
 
     let ai_names = ['littleboy', 'fatman', 'kamikaze', 'jerry', 'moji', 'miko', 'taiwanvalue', 'noowyee', 'yves', 'youknowwhoiam', 'ganninia', 'nihaoma', 'tiger', 'hitler', 'anny'];
@@ -45,9 +45,9 @@ function Service(Me, api) {
 
     let getname = (p1name, p2name, callback) => {
       if(!ai_names.includes(p1name)) {
-        api.Authenticity.getUsernamebyId(p1name, (err, p1n)=>{
+        api.Authenticity.getUsernameByUserId(p1name, (err, p1n)=>{
           if(!ai_names.includes(p2name)) {
-            api.Authenticity.getUsernamebyId(p2name, (err, p2n)=>{
+            api.Authenticity.getUsernameByUserId(p2name, (err, p2n)=>{
               callback(p1n, p2n);
             });
           }
@@ -56,7 +56,7 @@ function Service(Me, api) {
           }
         });
       }else {
-        api.Authenticity.getUsernamebyId(p2name, (err, p2n)=>{
+        api.Authenticity.getUsernameByUserId(p2name, (err, p2n)=>{
           callback(p1name, p2n);
         });
       }
@@ -86,7 +86,7 @@ function Service(Me, api) {
     }
 
     noversi.onChat = (userid, emitter, chat) => {
-      api.Authenticity.getUsernamebyId(emitter, (err, name)=>{
+      api.Authenticity.getUsernameByUserId(emitter, (err, name)=>{
         if(ai_names.includes(emitter)) {
           name = emitter;
         }
@@ -121,7 +121,7 @@ function Service(Me, api) {
           if(pass) {
             let userid = null;
             // Get userid from API
-            api.Authenticity.getUserID(username, (err, id) => {
+            api.Authenticity.getUserIdByUsername(username, (err, id) => {
               if(userid_entityids[id]) {
                 if(!userid_entityids[id].includes(entityID)) {
                   userid_entityids[id] = userid_entityids[id].concat([entityID]);
@@ -152,7 +152,7 @@ function Service(Me, api) {
           if(pass) {
             let userid = null;
             // Get userid from API
-            api.Authenticity.getUserID(username, (err, id) => {
+            api.Authenticity.getUserIdByUsername(username, (err, id) => {
               noversi.dropChess(id, json.r, json.c, safec((err, json)=>{
                 returnJSON(false, json);
               }));
@@ -176,7 +176,7 @@ function Service(Me, api) {
           if(pass) {
             let userid = null;
             // Get userid from API
-            api.Authenticity.getUserID(json.u, (err, id) => {
+            api.Authenticity.getUserIdByUsername(json.u, (err, id) => {
               noversi.getUserHistory(json.u=='NoversiAI'?json.u:id, safec((err, rows)=>{
                 if(rows.length) {
                   returnJSON(false, json.u=='NoversiAI'?rows:JSON.parse((JSON.stringify(rows)).replaceAll(id, json.u)));
@@ -204,7 +204,7 @@ function Service(Me, api) {
           if(pass) {
             let userid = null;
             // Get userid from API
-            api.Authenticity.getUserID(json.u, (err, id) => {
+            api.Authenticity.getUserIdByUsername(json.u, (err, id) => {
               noversi.getUserMeta(json.u=='NoversiAI'?json.u:id, safec((err, meta)=>{
                 if(Object.keys(meta).length) {
                   returnJSON(false, meta);
@@ -233,7 +233,7 @@ function Service(Me, api) {
           if(pass) {
             let userid = null;
             // Get userid from API
-            api.Authenticity.getUserID(username, (err, id) => {
+            api.Authenticity.getUserIdByUsername(username, (err, id) => {
               noversi.chat(id, json.c);
             });
           }
@@ -255,7 +255,7 @@ function Service(Me, api) {
           if(pass) {
             let userid = null;
             // Get userid from API
-            api.Authenticity.getUserID(username, (err, id) => {
+            api.Authenticity.getUserIdByUsername(username, (err, id) => {
               noversi.quitMatch(id);
             });
           }
@@ -270,7 +270,7 @@ function Service(Me, api) {
       // Get Username and process your work.
       api.Service.Entity.getEntityOwner(entityID, (err, username)=> {
         // Get userid from API
-        api.Authenticity.getUserID(username, (err, id) => {
+        api.Authenticity.getUserIdByUsername(username, (err, id) => {
           let entityids = userid_entityids[id];
           try {
             entityids.splice(entityids.indexOf(entityID), 1);
