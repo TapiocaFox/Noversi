@@ -1,5 +1,5 @@
 let _NSc = new NSc();
-_NSc.connect('127.0.0.1');
+_NSc.connect('0.0.0.0');
 function getQueryVariable(variable)
 {
        var query = window.location.search.substring(1);

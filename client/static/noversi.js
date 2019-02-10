@@ -133,7 +133,7 @@ var mykey="NNNNNNNNNNNNNNNNNNNNNNNNNNNBANNNNNNABNNNNNNNNNNNNNNNNNNNNNNNNNNN";
 //initailize
 function initailize () {
   let _NSc = new NSc();
-  _NSc.connect('127.0.0.1', 'WebSocket');
+  _NSc.connect('nooxy.org', 'WebSocket');
   _NSc.setDebug(true);
   uuid = guid();
   initmap();
@@ -161,7 +161,7 @@ function initailize () {
     as.onClose = () => {
       open_coverer('Disconnected.');
     };
-    as.onData = (data) => {
+    as.onData = (err, data) => {
       let renderBoard = ()=>{
         draw_map(data.game.key);
         if(data.game.r) {

@@ -15,7 +15,7 @@ var country_list = ["Afghanistan","Albania","Algeria","Andorra","Angola","Anguil
 		,"Turkey","Turkmenistan","Turks &amp; Caicos","Uganda","Ukraine","United Arab Emirates","United Kingdom","Uruguay","Uzbekistan","Venezuela","Vietnam","Virgin Islands (US)"
 		,"Yemen","Zambia","Zimbabwe"];
 
-_NSc.connect('127.0.0.1');
+_NSc.connect('0.0.0.0');
 _NSc.createActivitySocket('NoUser', (err, as)=>{
   $(function() {
     let status = $('#status');
@@ -40,7 +40,7 @@ _NSc.createActivitySocket('NoUser', (err, as)=>{
 					 _NSc.getImplement((err, implement_module)=>{
 
 						 setTimeout(()=>{
-							 _implementation.returnImplement('logout')();
+							 implement_module.returnImplement('logout')();
 							 window.location.replace('NoUserSettings.html');
 						 }, 1000);
 	         });

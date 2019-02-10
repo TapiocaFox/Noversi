@@ -14,6 +14,9 @@ a {
     width: 320px !important;
   }
 }
+input, button {
+  -webkit-appearance: none;
+}
 label {
   font-size: 12px;
 }
