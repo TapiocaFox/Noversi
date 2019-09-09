@@ -1,6 +1,6 @@
 # Noversi 
 [![](https://raw.githubusercontent.com/NOOXY-inc/Art-Collection/master/NoService/NoService.png)](https://github.com/noOXY-research/noservice)
-An online reversi service powered by NOOXY NoService and Nodenet.
+An online neuralnet reversi service powered by NOOXY NoService and Nodenet.
 
 ## Dependencies
 A UNIX system.
