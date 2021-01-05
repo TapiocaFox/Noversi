@@ -1,7 +1,9 @@
-uuid = ""
-havepass = 0
+"use strict";
+
+let uuid = ""
+let havepass = 0
 function initmap() {
-  x=document.getElementById('reversi-map-1');
+  let x=document.getElementById('reversi-map-1');
   let inner = "";
   for (let x=0; x<8; x++) {
     for (let y=0; y<8; y++) {
@@ -28,35 +30,35 @@ function s4() {
     .substring(1);
 }
 function reversi_turn_red_em (id) {
-  x=document.getElementById(id);
+  let x=document.getElementById(id);
   x.innerHTML = "<div class=\"reversi-map-red-em\"></div>";
 }
 function reversi_turn_red (id) {
-  x=document.getElementById(id);
+  let x=document.getElementById(id);
   x.innerHTML = "<div class=\"reversi-map-red\"></div>";
 }
 function reversi_turn_blue (id) {
-  x=document.getElementById(id);
+  let x=document.getElementById(id);
   x.innerHTML = "<div class=\"reversi-map-blue\"></div>";
 }
 function reversi_turn_red_em (id) {
-  x=document.getElementById(id);
+  let x=document.getElementById(id);
   x.innerHTML = "<div class=\"reversi-map-red-em\"></div>";
 }
 function reversi_turn_blue_em (id) {
-  x=document.getElementById(id);
+  let x=document.getElementById(id);
   x.innerHTML = "<div class=\"reversi-map-blue-em\"></div>";
 }
 function reversi_turn_none (id) {
-  x=document.getElementById(id);
+  let x=document.getElementById(id);
   x.innerHTML = " ";
 }
 function set_right_point (point) {
-  x=document.getElementById("point-right");
+  let x=document.getElementById("point-right");
   x.innerHTML =point;
 }
 function set_left_point (point) {
-  x=document.getElementById("point-left");
+  let x=document.getElementById("point-left");
   x.innerHTML =point;
 }
 function set_p1_meta (name, rating, win) {
@@ -72,7 +74,7 @@ function set_p2_meta (name, rating, win) {
 function flash(status) {
   flasher=document.getElementById("flash");
   flasher.classList.remove("style-hidden");
-  box=document.getElementById("flash-status-box");
+  let box=document.getElementById("flash-status-box");
   box.classList.remove("style-hidden");
   document.getElementById("flash-status").innerHTML = status;
   setTimeout(()=>{
@@ -82,15 +84,15 @@ function flash(status) {
   }, 450);
 }
 function close_coverer() {
-  coverer=document.getElementById("coverer");
+  let coverer=document.getElementById("coverer");
   coverer_loader=document.getElementById("coverer-loader");
   coverer.classList.add("style-hidden");
   coverer_loader.classList.add("style-hidden");
 }
 function open_coverer(status) {
-  coverer=document.getElementById("coverer");
+  let coverer=document.getElementById("coverer");
   coverer.classList.remove("style-hidden");
-  coverer_loader=document.getElementById("coverer-loader");
+  let coverer_loader=document.getElementById("coverer-loader");
   coverer_loader.classList.remove("style-hidden");
   document.getElementById("status").innerHTML = status;
 }

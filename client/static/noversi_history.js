@@ -1,3 +1,5 @@
+"use strict";
+
 let _NSc = new NSc();
 String.prototype.replaceAll = function(search, replacement) {
     var target = this;
